@@ -21,15 +21,20 @@ typedef struct characterData
 	int exp;
 };
 
+
 // Functions
 bool initSetting(HWND);
 bool CharacterProc(HWND, WPARAM);
 bool ItemProc(HWND, WPARAM);
 int SearchingQuery(HWND, TCHAR*, characterData*);
+int CreateQuery(HWND, characterData*);
 bool SetEditBoxWithValue(HWND, int);
 bool IsStringEmpty(TCHAR*);
 bool CharacterSearchProc(HWND);
 bool CharacterCreateProc(HWND);
+int ConvertTCharToInt(TCHAR*);
+bool MakeCreateData(HWND, characterData*);
+bool CheckCharacterIdAlreadyExist(HWND, TCHAR*);
 
 // Enum & Const Values
 enum CharacterMenu

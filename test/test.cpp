@@ -202,17 +202,17 @@ bool IsStringEmpty(TCHAR* inputStr)
 // 캐릭터 서치를 진행하는 함수.
 bool CharacterSearchProc(HWND hWnd)
 {
-	TCHAR str[EDIT_BUF_SIZE];
-	GetWindowText(hIdEdit, str, EDIT_BUF_SIZE);
+	TCHAR idStr[EDIT_BUF_SIZE];
+	GetWindowText(hIdEdit, idStr, EDIT_BUF_SIZE);
 
-	if (IsStringEmpty(str))
+	if (IsStringEmpty(idStr))
 	{
 		MessageBox(hWnd, TEXT("값을 입력해주세요."), TEXT("ERROR_NO_INPUT"), MB_OK);
 	}
 	else
 	{
 		characterData* searchingData = new characterData;
-		int returnVal = SearchingQuery(hWnd, str, searchingData);
+		int returnVal = SearchingQuery(hWnd, idStr, searchingData);
 		if (returnVal == 0)
 		{
 			SetEditBoxWithValue(hIdEdit, searchingData->id);
@@ -228,9 +228,148 @@ bool CharacterSearchProc(HWND hWnd)
 // 캐릭터 생성을 진행하는 함수.
 bool CharacterCreateProc(HWND hWnd)
 {
-	// TODO :: 여기서부터 합시다.
-	TCHAR str[EDIT_BUF_SIZE];
-	GetWindowText(hIdEdit, str, EDIT_BUF_SIZE);
+	TCHAR idStr[EDIT_BUF_SIZE];
+	GetWindowText(hIdEdit, idStr, EDIT_BUF_SIZE);
+
+	if (IsStringEmpty(idStr))
+	{
+		MessageBox(hWnd, TEXT("값을 입력해주세요."), TEXT("ERROR_NO_INPUT"), MB_OK);
+	}
+	else
+	{
+		bool IsCharacterIdExist = CheckCharacterIdAlreadyExist(hWnd, idStr);
+		if (IsCharacterIdExist == true)
+		{
+			MessageBox(hWnd, TEXT("이미 존재하는 ID입니다."), TEXT("ERROR_EXIST_ID"), MB_OK);
+			return true;
+		}
+
+		characterData* createData = new characterData;
+		bool IsDataCreatedWell = MakeCreateData(hWnd, createData);
+
+		if (IsDataCreatedWell == false)
+		{
+			MessageBox(hWnd, TEXT("올바른 값을 입력해주세요."), TEXT("ERROR_INVALID_INPUT"), MB_OK);
+		}
+		else
+		{
+			CreateQuery(hWnd, createData);
+		}
+		delete createData;
+	}
 
 	return true;
+}
+
+int CreateQuery(HWND hWnd, characterData* createData)
+{
+	// TODO :: 함수로 쪼개기.
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		return -1;
+	}
+
+
+	// 형변환
+	std::wstring createId(std::to_wstring(createData->id));
+	std::wstring createLv(std::to_wstring(createData->level));
+	std::wstring createExp(std::to_wstring(createData->exp));
+
+	std::wstring inputString = L"insert into testdb.human VALUES('" + createId + L"', '" + createLv + L"', '" + createExp + L"')";
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+	if (ret == SQL_SUCCESS)
+	{
+		MessageBox(hWnd, TEXT("성공적으로 저장되었습니다."), TEXT("SAVE"), MB_OK);
+	}
+	else
+	{
+		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+		return -1;
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
+
+// TCHAR*형의 인자를 넣으면 int형 값으로 바꾸어주는 함수. 만약 숫자가 아닌 값이 있다면 INT_MIN 반환.
+int ConvertTCharToInt(TCHAR* inputTChar)
+{
+	int ret = 0;
+	int size = _tcslen(inputTChar);
+
+	for (int idx = 0; idx < size; ++idx)
+	{
+		if (inputTChar[idx] >= '0' && inputTChar[idx] <= '9')
+		{
+			ret = ret * 10 + (inputTChar[idx] - '0');
+		}
+		else
+		{
+			return INT_MIN;
+		}
+	}
+
+	return ret;
+
+}
+
+// 생성할 characterData의 정보를 window에서 얻어와서 채워넣어 주는 함수.
+// 정상적으로 생성되었을 경우 true를, 아닐 경우 false반환.
+bool MakeCreateData(HWND hWnd, characterData* makeData)
+{
+	TCHAR str[EDIT_BUF_SIZE];
+
+	// Window에서 정보를 얻어와서 저장.
+	GetWindowText(hIdEdit, str, EDIT_BUF_SIZE);
+	makeData->id = ConvertTCharToInt(str);
+	GetWindowText(hLvEdit, str, EDIT_BUF_SIZE);
+	makeData->level = ConvertTCharToInt(str);
+	GetWindowText(hExpEdit, str, EDIT_BUF_SIZE);
+	makeData->exp = ConvertTCharToInt(str);
+
+	// 반환값이 이상할 경우, false 반환.
+	if (makeData->id == INT_MIN || makeData->level == INT_MIN || makeData->exp == INT_MIN)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+// 캐릭터 정보를 생성하기 전에 ID가 존재하는지 확인해주는 함수.
+// 존재할 경우 True를, 아닐경우 false반환.
+bool CheckCharacterIdAlreadyExist(HWND hWnd, TCHAR* searchingId)
+{
+	characterData* checkData = new characterData;
+	int retVal = SearchingQuery(hWnd, searchingId, checkData);
+	delete checkData;
+
+	if (retVal == 0)
+	{
+		return true;
+	}
+
+	return false;
+	
 }
