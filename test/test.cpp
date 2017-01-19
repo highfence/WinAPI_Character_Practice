@@ -99,8 +99,8 @@ bool CharacterProc(HWND hWnd, WPARAM wParam)
 		CharacterSearchProc(hWnd);
 		return true;
 
-
 	case BTN_DELETE :
+		CharacterDeleteProc(hWnd);
 		return true;
 	}
 
@@ -108,75 +108,7 @@ bool CharacterProc(HWND hWnd, WPARAM wParam)
 }
 
 
-int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData)
-{
-	// TODO :: 문자열 매직넘버 처리.
-	int ret;
-	SQLHENV hEnv;
-	SQLHDBC hDbc;
-	SQLHSTMT hStmt;
 
-	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
-	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
-	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
-
-	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
-	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
-	{
-		MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
-		return -1;
-	}
-
-	// 형변환
-	std::wstring searchingId = inputId;
-	std::wstring inputString = L"select * from testdb.human where id =" + searchingId;
-	const wchar_t *inputWChar = inputString.c_str();
-
-	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
-	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
-
-
-	if (ret == SQL_SUCCESS)
-	{
-		int iCount = 0;
-		SQLLEN iIdLen, iLvLen, iExpLen;
-
-		while (TRUE)
-		{
-			ret = SQLFetch(hStmt);
-			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
-			{
-				MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
-				return -1;
-			}
-			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
-			{
-				SQLGetData(hStmt, 1, SQL_C_ULONG, &outData->id, 0, &iIdLen);
-				SQLGetData(hStmt, 2, SQL_C_ULONG, &outData->level, 0, &iLvLen);
-				SQLGetData(hStmt, 3, SQL_C_ULONG, &outData->exp, 0, &iExpLen);
-
-				// id 데이터는 최대 한 개만 받으므로.
-				break;
-			}
-			else MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
-			return -1;
-		}
-	}
-	else
-	{
-		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
-		return -1;
-	}
-	
-	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
-
-	return 0;
-	
-}
 
 // EditBox의 핸들과 int값을 받아 EditBox의 값을 바꾸어주는 함수.
 bool SetEditBoxWithValue(HWND inputHandle, int textValue)
@@ -212,7 +144,7 @@ bool CharacterSearchProc(HWND hWnd)
 	else
 	{
 		characterData* searchingData = new characterData;
-		int returnVal = SearchingQuery(hWnd, idStr, searchingData);
+		int returnVal = SearchingQuery(hWnd, idStr, searchingData, true);
 		if (returnVal == 0)
 		{
 			SetEditBoxWithValue(hIdEdit, searchingData->id);
@@ -261,6 +193,120 @@ bool CharacterCreateProc(HWND hWnd)
 	return true;
 }
 
+// 캐릭터 삭제를 진행하는 함수.
+bool CharacterDeleteProc(HWND hWnd)
+{
+	TCHAR idStr[EDIT_BUF_SIZE];
+	GetWindowText(hIdEdit, idStr, EDIT_BUF_SIZE);
+
+	if (IsStringEmpty(idStr))
+	{
+		MessageBox(hWnd, TEXT("삭제할 id값을 입력해주세요."), TEXT("ERROR_NO_INPUT"), MB_OK);
+	}
+	else
+	{
+		bool IsCharacterIdExist = CheckCharacterIdAlreadyExist(hWnd, idStr);
+		if (IsCharacterIdExist == false)
+		{
+			MessageBox(hWnd, TEXT("ID가 존재하지 않습니다."), TEXT("ERROR_NO_ID"), MB_OK);
+		}
+		else
+		{
+			DeleteQuery(hWnd, idStr);
+		}
+	}
+
+	return true;
+}
+
+// TCHAR*형의 id를 받아 db에서 검색. 인자로 받은 구조체에 채워주는 함수.
+// 마지막 인자는 MessageBox를 띄울 것인지 결정(단순 서치만 할경우 false, 띄울 경우 true)
+int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMessageBoxPop)
+{
+	// TODO :: 문자열 매직넘버 처리.
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		}
+		return -1;
+	}
+
+	// 형변환
+	std::wstring searchingId = inputId;
+	std::wstring inputString = L"select * from testdb.human where id =" + searchingId;
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+
+	if (ret == SQL_SUCCESS)
+	{
+		int iCount = 0;
+		SQLLEN iIdLen, iLvLen, iExpLen;
+
+		while (TRUE)
+		{
+			ret = SQLFetch(hStmt);
+			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				if (IsMessageBoxPop == true)
+				{
+					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
+				}
+				return -1;
+			}
+			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				SQLGetData(hStmt, 1, SQL_C_ULONG, &outData->id, 0, &iIdLen);
+				SQLGetData(hStmt, 2, SQL_C_ULONG, &outData->level, 0, &iLvLen);
+				SQLGetData(hStmt, 3, SQL_C_ULONG, &outData->exp, 0, &iExpLen);
+
+				// id 데이터는 최대 한 개만 받으므로.
+				break;
+			}
+			else
+			{
+				if (IsMessageBoxPop == true)
+				{
+					MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
+				}
+				return -1;
+			}
+		}
+	}
+	else
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+		}
+		return -1;
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
+
+// 인자로 받은 구조체를 db에 넣어주는 함수.
 int CreateQuery(HWND hWnd, characterData* createData)
 {
 	// TODO :: 함수로 쪼개기.
@@ -294,7 +340,7 @@ int CreateQuery(HWND hWnd, characterData* createData)
 
 	if (ret == SQL_SUCCESS)
 	{
-		MessageBox(hWnd, TEXT("성공적으로 저장되었습니다."), TEXT("SAVE"), MB_OK);
+		MessageBox(hWnd, TEXT("성공적으로 생성되었습니다."), TEXT("SAVE"), MB_OK);
 	}
 	else
 	{
@@ -311,6 +357,57 @@ int CreateQuery(HWND hWnd, characterData* createData)
 	return 0;
 
 }
+
+// TCHAR*형으로 받은 id에 해당하는 캐릭터를 db에서 삭제해주는 함수.
+int DeleteQuery(HWND hWnd, TCHAR* inputId)
+{
+	// TODO :: 함수로 쪼개기.
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		return -1;
+	}
+
+
+	// 형변환
+	std::wstring deleteId = inputId;
+
+	std::wstring inputString = L"delete from testdb.human where id =" + deleteId;
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+	if (ret == SQL_SUCCESS)
+	{
+		MessageBox(hWnd, TEXT("성공적으로 삭제되었습니다."), TEXT("DELETE"), MB_OK);
+	}
+	else
+	{
+		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+		return -1;
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
+
 
 // TCHAR*형의 인자를 넣으면 int형 값으로 바꾸어주는 함수. 만약 숫자가 아닌 값이 있다면 INT_MIN 반환.
 int ConvertTCharToInt(TCHAR* inputTChar)
@@ -362,7 +459,7 @@ bool MakeCreateData(HWND hWnd, characterData* makeData)
 bool CheckCharacterIdAlreadyExist(HWND hWnd, TCHAR* searchingId)
 {
 	characterData* checkData = new characterData;
-	int retVal = SearchingQuery(hWnd, searchingId, checkData);
+	int retVal = SearchingQuery(hWnd, searchingId, checkData, false);
 	delete checkData;
 
 	if (retVal == 0)

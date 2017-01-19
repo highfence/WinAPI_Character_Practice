@@ -36,8 +36,9 @@ bool CharacterProc(HWND, WPARAM);
 bool CharacterSearchProc(HWND);
 bool CharacterCreateProc(HWND);
 bool CharacterDeleteProc(HWND);
-int SearchingQuery(HWND, TCHAR*, characterData*);
+int SearchingQuery(HWND, TCHAR*, characterData*, bool);
 int CreateQuery(HWND, characterData*);
+int DeleteQuery(HWND, TCHAR*);
 bool MakeCreateData(HWND, characterData*);
 bool CheckCharacterIdAlreadyExist(HWND, TCHAR*);
 
