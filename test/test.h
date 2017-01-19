@@ -1,4 +1,5 @@
 #pragma once
+
 #include <Windows.h>
 #include <sstream>
 #include <stdio.h>
@@ -7,6 +8,8 @@
 using namespace std;
 #include <sql.h>
 #include <sqlext.h>
+
+#include "define.h"
 
 // Basic Win API Settings
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -24,17 +27,22 @@ typedef struct characterData
 
 // Functions
 bool initSetting(HWND);
-bool CharacterProc(HWND, WPARAM);
-bool ItemProc(HWND, WPARAM);
-int SearchingQuery(HWND, TCHAR*, characterData*);
-int CreateQuery(HWND, characterData*);
 bool SetEditBoxWithValue(HWND, int);
+int ConvertTCharToInt(TCHAR*);
 bool IsStringEmpty(TCHAR*);
+
+// Character Functions
+bool CharacterProc(HWND, WPARAM);
 bool CharacterSearchProc(HWND);
 bool CharacterCreateProc(HWND);
-int ConvertTCharToInt(TCHAR*);
+bool CharacterDeleteProc(HWND);
+int SearchingQuery(HWND, TCHAR*, characterData*);
+int CreateQuery(HWND, characterData*);
 bool MakeCreateData(HWND, characterData*);
 bool CheckCharacterIdAlreadyExist(HWND, TCHAR*);
+
+// Item Functions
+bool ItemProc(HWND, WPARAM);
 
 // Enum & Const Values
 enum CharacterMenu
