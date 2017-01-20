@@ -122,6 +122,7 @@ bool ItemProc(HWND hWnd, WPARAM wParam)
 		return true;
 
 	case BTN_ITEM_DELETE :
+		ItemDeleteProc(hWnd);
 		return true;
 
 	case LIST_ITEM :
@@ -260,12 +261,7 @@ bool ItemSearchProc(HWND hWnd)
 		}
 		else
 		{
-			vector<itemData>* dataVec = new vector<itemData>;
-			ItemSearchingQuery(hWnd, idStr, dataVec, true);
-			MakeItemList(hWnd, dataVec);
-
-			// vector 메모리 해제.
-			vector<itemData>().swap(*dataVec);
+			ListRefresh(hWnd, idStr, true);
 		}
 	}
 
@@ -276,8 +272,19 @@ bool ItemSearchProc(HWND hWnd)
 bool ItemDeleteProc(HWND hWnd)
 {
 	// TODO :: 여기서부터 합시다.
-	TCHAR itemStr[EDIT_BUF_SIZE];
-	GetWindowText(hItemList, itemStr, EDIT_BUF_SIZE);
+	TCHAR humanIdStr[EDIT_BUF_SIZE];
+	GetWindowText(hItemEdit, humanIdStr, EDIT_BUF_SIZE);
+	
+	// 리스트에서 item이 선택 되지 않았을 경우, selectedList는 INT_MIN상태.
+	if (g_SelectedListIdx == INT_MIN)
+	{
+		MessageBox(hWnd, TEXT("삭제할 아이템을 선택해 주세요."), TEXT("ERROR_INVALID_INPUT"), MB_OK);
+	}
+	else
+	{
+		ItemDeleteQuery(hWnd, humanIdStr);
+		ListRefresh(hWnd, humanIdStr, false);
+	}
 
 	return true;
 }
@@ -329,6 +336,7 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 				{
 					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
 				}
+				// TODO :: 종료 추가.
 				return -1;
 			}
 			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
@@ -561,6 +569,141 @@ inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingI
 
 }
 
+// g_SelecteListIdx로 선택된 아이템을 db에서 해당하는 item을 삭제해 주는 함수.
+int ItemDeleteQuery(HWND hWnd, TCHAR* humanIdStr)
+{
+	// TODO :: 함수로 쪼개기.
+	// 캐릭터랑 합쳐볼까?
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		return -1;
+	}
+
+	// 형변환
+	std::wstring inputId = humanIdStr;
+	int* itemId = 0;
+	ItemIdSearchingQuery(hWnd, itemId, false);
+
+	if (itemId == 0)
+	{
+		MessageBox(hWnd, TEXT("아이템 이름에 문제가 있습니다."), TEXT("ERROR_INVALID_NAME"), MB_OK);
+	}
+
+	std::wstring inputString = L"delete from testdb.human_has_item where item_id=" + to_wstring(*itemId) + L" and human_id =" + inputId;
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+	if (ret == SQL_SUCCESS)
+	{
+		MessageBox(hWnd, TEXT("성공적으로 삭제되었습니다."), TEXT("DELETE"), MB_OK);
+	}
+	else
+	{
+		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
+
+// g_SelectedListIdx가 있는 리스트의 id를 찾는 함수.
+// 인자로 윈도우 핸들과, 반환할 int*형 id값을 받는다.
+int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
+{
+	// TODO :: 문자열 매직넘버 처리.
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		}
+		return -1;
+	}
+
+	// 형변환
+	TCHAR searchingItemName[EDIT_BUF_SIZE];
+	SendMessage(hItemList, LB_GETTEXT, g_SelectedListIdx, (LPARAM)searchingItemName);
+	std::wstring inputString = L"select id from testdb.item where name = '" + to_wstring(*searchingItemName) + L"'";
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+
+	if (ret == SQL_SUCCESS)
+	{
+		int iCount = 0;
+		SQLLEN iIdLen;
+
+		while (TRUE)
+		{
+			ret = SQLFetch(hStmt);
+			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				if (IsMessageBoxPop == true)
+				{
+					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
+				}
+				return -1;
+			}
+			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				SQLGetData(hStmt, 1, SQL_C_ULONG, &itemId, 0, &iIdLen);
+				break;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	else
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+		}
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
+
 // TCHAR*형의 인자를 넣으면 int형 값으로 바꾸어주는 함수. 만약 숫자가 아닌 값이 있다면 INT_MIN 반환.
 int ConvertTCharToInt(TCHAR* inputTChar)
 {
@@ -633,6 +776,23 @@ bool MakeItemList(HWND hWnd, std::vector<itemData>* dataVec)
 	{
 		SendMessage(hItemList, LB_ADDSTRING, 0, (LPARAM)dataVec->at(idx).name);
 	}
+
+	return true;
+}
+
+// 리스트를 갱신하는 작업을 해주는 함수.
+// 인자로 윈도우 핸들, TCHAR*형식의 id, 그리고 MessageBox를 띄울지 말지 결정하는 값을 가진다.
+bool ListRefresh(HWND hWnd, TCHAR* idStr, bool IsMessageBoxPop)
+{
+	vector<itemData>* dataVec = new vector<itemData>;
+	ItemSearchingQuery(hWnd, idStr, dataVec, IsMessageBoxPop);
+	MakeItemList(hWnd, dataVec);
+
+	// vector 메모리 해제.
+	vector<itemData>().swap(*dataVec);
+
+	// 삭제를 위해서 selectedListIdx초기화.
+	g_SelectedListIdx = INT_MIN;
 
 	return true;
 }

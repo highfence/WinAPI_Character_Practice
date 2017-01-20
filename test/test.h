@@ -68,6 +68,9 @@ bool ItemProc(HWND, WPARAM);
 bool ItemSearchProc(HWND);
 bool ItemDeleteProc(HWND);
 int ItemSearchingQuery(HWND, TCHAR*, std::vector<itemData>*, bool);
+int ItemDeleteQuery(HWND, TCHAR*);
+int ItemIdSearchingQuery(HWND, int*, bool);
+bool ListRefresh(HWND, TCHAR*, bool);
 bool MakeItemList(HWND, std::vector<itemData>*);
 
 
@@ -78,3 +81,5 @@ HWND hLvEdit;
 HWND hExpEdit;
 HWND hItemEdit;
 HWND hItemList;
+
+int g_SelectedListIdx = INT_MIN;
