@@ -272,7 +272,6 @@ bool ItemSearchProc(HWND hWnd)
 // Item을 삭제하는 과정을 진행하는 함수.
 bool ItemDeleteProc(HWND hWnd)
 {
-	// TODO :: 여기서부터 합시다.
 	TCHAR humanIdStr[EDIT_BUF_SIZE];
 	GetWindowText(hItemEdit, humanIdStr, EDIT_BUF_SIZE);
 	
@@ -350,7 +349,7 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 				{
 					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
 				}
-				// TODO :: 종료 추가.
+				DBFree(hEnv, hDbc, hStmt);
 				return -1;
 			}
 			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
@@ -368,7 +367,7 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 				{
 					MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
 				}
-				// TODO :: 종료 추가.
+				DBFree(hEnv, hDbc, hStmt);
 				return -1;
 			}
 		}
@@ -382,10 +381,7 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 	}
 
 	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -433,10 +429,7 @@ int CreateQuery(HWND hWnd, characterData* createData)
 	}
 
 	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -462,14 +455,25 @@ int DeleteQuery(HWND hWnd, TCHAR* inputId)
 		return -1;
 	}
 
+	// 갖고있는 아이템 먼저 제거.
+	std::wstring deleteId = inputId;
+	std::wstring itemDeleteString = L"delete from testdb.human_has_item where human_id =" + deleteId;
+	const wchar_t* itemDeleteWChar = itemDeleteString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)itemDeleteWChar, SQL_NTS);
+
+	if (ret != SQL_SUCCESS)
+	{
+		MessageBox(hWnd, TEXT("캐릭터가 가지고 있는 아이템을 삭제하지 못했습니다."), TEXT("ERROR_CANNOT_DELETE"), MB_OK);
+		DBFree(hEnv, hDbc, hStmt);
+		return -1;
+	}
 
 	// 형변환
-	std::wstring deleteId = inputId;
-
 	std::wstring inputString = L"delete from testdb.human where id =" + deleteId;
 	const wchar_t *inputWChar = inputString.c_str();
 
-	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
 	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
 
 	if (ret == SQL_SUCCESS)
@@ -482,10 +486,7 @@ int DeleteQuery(HWND hWnd, TCHAR* inputId)
 	}
 
 	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -540,6 +541,7 @@ inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingI
 				{
 					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
 				}
+				DBFree(hEnv, hDbc, hStmt);
 				return -1;
 			}
 			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
@@ -557,6 +559,7 @@ inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingI
 					MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
 				}
 				// TODO :: 종료 추가.
+				DBFree(hEnv, hDbc, hStmt);
 				return -1;
 			}
 			else
@@ -574,10 +577,7 @@ inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingI
 	}
 
 	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -630,10 +630,7 @@ int ItemDeleteQuery(HWND hWnd, TCHAR* humanIdStr)
 	}
 
 	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -688,7 +685,7 @@ int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
 				{
 					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
 				}
-				// TODO :: 종료 처리.
+				DBFree(hEnv, hDbc, hStmt);
 				return -1;
 			}
 			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
@@ -710,11 +707,7 @@ int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
 		}
 	}
 
-	// 접속 종료 및 반환.
-	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-	if (hDbc) SQLDisconnect(hDbc);
-	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
-	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+	DBFree(hEnv, hDbc, hStmt);
 
 	return 0;
 
@@ -809,6 +802,18 @@ bool ListRefresh(HWND hWnd, TCHAR* idStr, bool IsMessageBoxPop)
 
 	// 삭제를 위해서 selectedListIdx초기화.
 	g_SelectedListIdx = INT_MIN;
+
+	return true;
+}
+
+// DB에 할당했던 핸들을 해제해주는 함수.
+bool DBFree(SQLHENV hEnv, SQLHDBC hDbc, SQLHSTMT hStmt)
+{
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
 
 	return true;
 }
