@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <string>
+#include <vector>
 using namespace std;
 #include <sql.h>
 #include <sqlext.h>
@@ -16,12 +17,32 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 HINSTANCE g_hInst;
 LPCTSTR lpszClass = TEXT("Test");
 
+// Enum & Const Values
+enum CharacterMenu
+{
+	EDIT_ID = 101, EDIT_LV, EDIT_EXP,
+	BTN_CREATE = 201, BTN_SEARCH, BTN_DELETE,
+
+	EDIT_ITEM_ID = 301, BTN_ITEM_SEARCH, BTN_ITEM_DELETE, LIST_ITEM
+};
+
+const int EDIT_BUF_SIZE = 32;
+const int ITEM_TYPE_MAX_LENGTH = 40;
+const int ITEM_NAME_MAX_LENGTH = 40;
+
 // Data struct
 typedef struct characterData
 {
 	int id;
 	int level;
 	int exp;
+};
+
+typedef struct itemData
+{
+	int id;
+	wchar_t type[ITEM_TYPE_MAX_LENGTH];
+	wchar_t name[ITEM_NAME_MAX_LENGTH];
 };
 
 
@@ -44,20 +65,16 @@ bool CheckCharacterIdAlreadyExist(HWND, TCHAR*);
 
 // Item Functions
 bool ItemProc(HWND, WPARAM);
+bool ItemSearchProc(HWND);
+bool ItemDeleteProc(HWND);
+int ItemSearchingQuery(HWND, TCHAR*, std::vector<itemData>*, bool);
+bool MakeItemList(HWND, std::vector<itemData>*);
 
-// Enum & Const Values
-enum CharacterMenu
-{
-	EDIT_ID = 101, EDIT_LV, EDIT_EXP,
-	BTN_CREATE = 201, BTN_SEARCH, BTN_DELETE,
 
-	EDIT_ITEM_ID = 301, BTN_ITEM_SEARCH, BTN_ITEM_DELETE
-};
-
-const int EDIT_BUF_SIZE = 32;
 
 // Variables
 HWND hIdEdit;
 HWND hLvEdit;
 HWND hExpEdit;
 HWND hItemEdit;
+HWND hItemList;

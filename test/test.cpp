@@ -48,6 +48,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 
 	case WM_COMMAND :
 		CharacterProc(hWnd, wParam);
+		ItemProc(hWnd, wParam);
 		break;
 
 	case WM_DESTROY :
@@ -75,18 +76,20 @@ bool initSetting(HWND hWnd)
 	CreateWindow(TEXT("button"), TEXT("삭제"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 460, 45, 100, 30, hWnd, (HMENU)BTN_DELETE, g_hInst, NULL);
 
 	// 아이템
-	CreateWindow(TEXT("button"), TEXT("아이템"), WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 10, 200, 600, 150, hWnd, (HMENU)-1, g_hInst, NULL);
-	CreateWindow(TEXT("static"), TEXT("ID : "), WS_CHILD | WS_VISIBLE, 40, 250, 100, 25, hWnd, (HMENU)-1, g_hInst, NULL);
+	CreateWindow(TEXT("button"), TEXT("아이템 검색"), WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 10, 200, 600, 150, hWnd, (HMENU)-1, g_hInst, NULL);
+	CreateWindow(TEXT("static"), TEXT("ID : "), WS_CHILD | WS_VISIBLE, 40, 230, 100, 25, hWnd, (HMENU)-1, g_hInst, NULL);
+	CreateWindow(TEXT("static"), TEXT("캐릭터 보유 아이템"), WS_CHILD | WS_VISIBLE, 220, 200, 140, 25, hWnd, (HMENU)-1, g_hInst, NULL);
 
-	hItemEdit = CreateWindow(TEXT("edit"), NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 90, 250, 100, 20, hWnd, (HMENU)EDIT_ITEM_ID, g_hInst, NULL);
+	hItemEdit = CreateWindow(TEXT("edit"), NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 70, 230, 100, 20, hWnd, (HMENU)EDIT_ITEM_ID, g_hInst, NULL);
 
-	CreateWindow(TEXT("button"), TEXT("검색"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 40, 280, 100, 25, hWnd, (HMENU)BTN_ITEM_SEARCH, g_hInst, NULL);
-	CreateWindow(TEXT("button"), TEXT("삭제"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 40, 310, 100, 25, hWnd, (HMENU)BTN_ITEM_DELETE, g_hInst, NULL);
+	CreateWindow(TEXT("button"), TEXT("검색"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 40, 270, 130, 25, hWnd, (HMENU)BTN_ITEM_SEARCH, g_hInst, NULL);
+	CreateWindow(TEXT("button"), TEXT("삭제"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 40, 300, 130, 25, hWnd, (HMENU)BTN_ITEM_DELETE, g_hInst, NULL);
 
 	return true;
 }
 
 
+// 캐릭터 관련 함수들을 처리해주는 함수.
 bool CharacterProc(HWND hWnd, WPARAM wParam)
 {
 	switch (LOWORD(wParam))
@@ -107,6 +110,25 @@ bool CharacterProc(HWND hWnd, WPARAM wParam)
 	return false;
 }
 
+// 아이템 관련 함수들을 처리해주는 함수.
+bool ItemProc(HWND hWnd, WPARAM wParam)
+{
+	// TODO :: 여기서 부터 짭시다.
+	// 캐릭터를 고르면 item이 자동으로 리스트가 나오게 해야할지 아니면 따로 할지 고민중.
+	switch (LOWORD(wParam))
+	{
+	case BTN_ITEM_SEARCH :
+		ItemSearchProc(hWnd);
+		return true;
+
+	case BTN_ITEM_DELETE :
+		return true;
+
+	case LIST_ITEM :
+		return true;
+	}
+	return false;
+}
 
 
 
@@ -219,6 +241,47 @@ bool CharacterDeleteProc(HWND hWnd)
 	return true;
 }
 
+// Item을 검색하는 과정을 진행하는 함수.
+bool ItemSearchProc(HWND hWnd)
+{
+	TCHAR idStr[EDIT_BUF_SIZE];
+	GetWindowText(hItemEdit, idStr, EDIT_BUF_SIZE);
+
+	if (IsStringEmpty(idStr))
+	{
+		MessageBox(hWnd, TEXT("찾으시려는 캐릭터의 ID값을 입력해주세요."), TEXT("ERROR_NO_INPUT"), MB_OK);
+	}
+	else
+	{
+		bool IsCharacterIdExist = CheckCharacterIdAlreadyExist(hWnd, idStr);
+		if (IsCharacterIdExist == false)
+		{
+			MessageBox(hWnd, TEXT("ID가 존재하지 않습니다."), TEXT("ERROR_NO_ID"), MB_OK);
+		}
+		else
+		{
+			vector<itemData>* dataVec = new vector<itemData>;
+			ItemSearchingQuery(hWnd, idStr, dataVec, true);
+			MakeItemList(hWnd, dataVec);
+
+			// vector 메모리 해제.
+			vector<itemData>().swap(*dataVec);
+		}
+	}
+
+	return true;
+}
+
+// Item을 삭제하는 과정을 진행하는 함수.
+bool ItemDeleteProc(HWND hWnd)
+{
+	// TODO :: 여기서부터 합시다.
+	TCHAR itemStr[EDIT_BUF_SIZE];
+	GetWindowText(hItemList, itemStr, EDIT_BUF_SIZE);
+
+	return true;
+}
+
 // TCHAR*형의 id를 받아 db에서 검색. 인자로 받은 구조체에 채워주는 함수.
 // 마지막 인자는 MessageBox를 띄울 것인지 결정(단순 서치만 할경우 false, 띄울 경우 true)
 int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMessageBoxPop)
@@ -283,6 +346,7 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 				{
 					MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
 				}
+				// TODO :: 종료 추가.
 				return -1;
 			}
 		}
@@ -293,7 +357,6 @@ int SearchingQuery(HWND hWnd, TCHAR* inputId, characterData* outData, bool IsMes
 		{
 			MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
 		}
-		return -1;
 	}
 
 	// 접속 종료 및 반환.
@@ -345,7 +408,6 @@ int CreateQuery(HWND hWnd, characterData* createData)
 	else
 	{
 		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
-		return -1;
 	}
 
 	// 접속 종료 및 반환.
@@ -395,7 +457,6 @@ int DeleteQuery(HWND hWnd, TCHAR* inputId)
 	else
 	{
 		MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
-		return -1;
 	}
 
 	// 접속 종료 및 반환.
@@ -408,6 +469,97 @@ int DeleteQuery(HWND hWnd, TCHAR* inputId)
 
 }
 
+// TCHAR*형의 캐릭터 ID를 받아 캐릭터가 가지고 있는 아이템을 조회해주는 함수.
+// 인자는 핸들, 캐릭터 ID, itemData를 담을 벡터, MessageBox을 띄울지 말지 결정 (true라면 경고창이 나옴)
+int ItemSearchingQuery(HWND hWnd, TCHAR* inputId, std::vector<itemData>* dataVec, bool IsMessageBoxPop)
+{
+	// TODO :: 문자열 매직넘버 처리.
+	int ret;
+	SQLHENV hEnv;
+	SQLHDBC hDbc;
+	SQLHSTMT hStmt;
+
+	ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
+	ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
+	ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
+
+	ret = SQLConnect(hDbc, (SQLWCHAR*)L"LOCAL", SQL_NTS, (SQLWCHAR*)L"root", SQL_NTS, (SQLWCHAR*)L"dlrmsdnjs93", SQL_NTS);
+	if (!(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO))
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL접속이 실패했습니다."), TEXT("ERROR_SQL_CONNECT"), MB_OK);
+		}
+		return -1;
+	}
+
+	// 형변환
+	std::wstring searchingId = inputId;
+	std::wstring inputString = L"select i.id, i.type, i.name from testdb.human_has_item as h \
+inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingId;
+	const wchar_t *inputWChar = inputString.c_str();
+
+	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
+	ret = SQLExecDirect(hStmt, (SQLWCHAR*)inputWChar, SQL_NTS);
+
+
+	if (ret == SQL_SUCCESS)
+	{
+		int iCount = 0;
+		SQLLEN iIdLen, iTypeLen, iNameLen;
+
+		while (TRUE)
+		{
+			ret = SQLFetch(hStmt);
+			itemData fetchData;
+			if (ret == SQL_ERROR || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				if (IsMessageBoxPop == true)
+				{
+					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
+				}
+				return -1;
+			}
+			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
+			{
+				SQLGetData(hStmt, 1, SQL_C_ULONG, &fetchData.id, 0, &iIdLen);
+				SQLGetData(hStmt, 2, SQL_C_WCHAR, fetchData.type, ITEM_TYPE_MAX_LENGTH, &iTypeLen);
+				SQLGetData(hStmt, 3, SQL_C_WCHAR, fetchData.name, ITEM_NAME_MAX_LENGTH, &iNameLen);
+
+				dataVec->push_back(fetchData);
+			}
+			else if (dataVec->size() == 0)
+			{
+				if (IsMessageBoxPop == true)
+				{
+					MessageBox(hWnd, TEXT("찾으시는 데이터가 존재하지 않습니다."), TEXT("ERROR_DATA_NOT_FOUND"), MB_OK);
+				}
+				// TODO :: 종료 추가.
+				return -1;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	else
+	{
+		if (IsMessageBoxPop == true)
+		{
+			MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_EXCUTING"), MB_OK);
+		}
+	}
+
+	// 접속 종료 및 반환.
+	if (hStmt) SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+	if (hDbc) SQLDisconnect(hDbc);
+	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return 0;
+
+}
 
 // TCHAR*형의 인자를 넣으면 int형 값으로 바꾸어주는 함수. 만약 숫자가 아닌 값이 있다면 INT_MIN 반환.
 int ConvertTCharToInt(TCHAR* inputTChar)
@@ -469,4 +621,18 @@ bool CheckCharacterIdAlreadyExist(HWND hWnd, TCHAR* searchingId)
 
 	return false;
 	
+}
+
+// 쿼리 결과를 이용하여 아이템의 리스트를 만들어주는 함수.
+bool MakeItemList(HWND hWnd, std::vector<itemData>* dataVec)
+{
+	hItemList = CreateWindow(TEXT("listbox"), NULL, WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY, 220, 230, 200, 100, hWnd, (HMENU)LIST_ITEM, g_hInst, NULL);
+
+	int size = dataVec->size();
+	for (int idx = 0; idx < size; ++idx)
+	{
+		SendMessage(hItemList, LB_ADDSTRING, 0, (LPARAM)dataVec->at(idx).name);
+	}
+
+	return true;
 }
