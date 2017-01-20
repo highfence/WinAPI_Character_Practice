@@ -67,6 +67,7 @@ bool CheckCharacterIdAlreadyExist(HWND, TCHAR*);
 bool ItemProc(HWND, WPARAM);
 bool ItemSearchProc(HWND);
 bool ItemDeleteProc(HWND);
+bool ListSelectProc(HWND, WPARAM);
 int ItemSearchingQuery(HWND, TCHAR*, std::vector<itemData>*, bool);
 int ItemDeleteQuery(HWND, TCHAR*);
 int ItemIdSearchingQuery(HWND, int*, bool);

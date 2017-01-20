@@ -126,6 +126,7 @@ bool ItemProc(HWND hWnd, WPARAM wParam)
 		return true;
 
 	case LIST_ITEM :
+		ListSelectProc(hWnd, wParam);
 		return true;
 	}
 	return false;
@@ -284,6 +285,19 @@ bool ItemDeleteProc(HWND hWnd)
 	{
 		ItemDeleteQuery(hWnd, humanIdStr);
 		ListRefresh(hWnd, humanIdStr, false);
+	}
+
+	return true;
+}
+
+// List의 아이템이 선택 되었을 경우를 처리하는 함수.
+bool ListSelectProc(HWND hWnd, WPARAM wParam)
+{
+	switch (HIWORD(wParam))
+	{
+	case LBN_SELCHANGE :
+		g_SelectedListIdx = SendMessage(hItemList, LB_GETCURSEL, 0, 0);
+		break;
 	}
 
 	return true;
@@ -592,15 +606,15 @@ int ItemDeleteQuery(HWND hWnd, TCHAR* humanIdStr)
 
 	// 형변환
 	std::wstring inputId = humanIdStr;
-	int* itemId = 0;
-	ItemIdSearchingQuery(hWnd, itemId, false);
+	int itemId = 0;
+	ItemIdSearchingQuery(hWnd, &itemId, false);
 
 	if (itemId == 0)
 	{
 		MessageBox(hWnd, TEXT("아이템 이름에 문제가 있습니다."), TEXT("ERROR_INVALID_NAME"), MB_OK);
 	}
 
-	std::wstring inputString = L"delete from testdb.human_has_item where item_id=" + to_wstring(*itemId) + L" and human_id =" + inputId;
+	std::wstring inputString = L"delete from testdb.human_has_item where item_id=" + to_wstring(itemId) + L" and human_id =" + inputId;
 	const wchar_t *inputWChar = inputString.c_str();
 
 	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
@@ -652,7 +666,8 @@ int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
 	// 형변환
 	TCHAR searchingItemName[EDIT_BUF_SIZE];
 	SendMessage(hItemList, LB_GETTEXT, g_SelectedListIdx, (LPARAM)searchingItemName);
-	std::wstring inputString = L"select id from testdb.item where name = '" + to_wstring(*searchingItemName) + L"'";
+	std::wstring itemName = searchingItemName;
+	std::wstring inputString = L"select id from testdb.item where name = '" + itemName + L"'";
 	const wchar_t *inputWChar = inputString.c_str();
 
 	ret = SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
@@ -673,11 +688,12 @@ int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
 				{
 					MessageBox(hWnd, TEXT("SQL도중 데이터를 읽어오지 못했습니다."), TEXT("ERROR_SQL_FETCH"), MB_OK);
 				}
+				// TODO :: 종료 처리.
 				return -1;
 			}
 			if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
 			{
-				SQLGetData(hStmt, 1, SQL_C_ULONG, &itemId, 0, &iIdLen);
+				SQLGetData(hStmt, 1, SQL_C_ULONG, itemId, 0, &iIdLen);
 				break;
 			}
 			else
