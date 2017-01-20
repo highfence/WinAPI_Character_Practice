@@ -407,7 +407,6 @@ int CreateQuery(HWND hWnd, characterData* createData)
 		return -1;
 	}
 
-
 	// 형변환
 	std::wstring createId(std::to_wstring(createData->id));
 	std::wstring createLv(std::to_wstring(createData->level));
@@ -583,7 +582,7 @@ inner join testdb.item as i ON h.item_id = i.id where h.human_id =" + searchingI
 
 }
 
-// g_SelecteListIdx로 선택된 아이템을 db에서 해당하는 item을 삭제해 주는 함수.
+// g_SelecteListIdx로 선택된 아이템을 db에서 삭제해 주는 함수.
 int ItemDeleteQuery(HWND hWnd, TCHAR* humanIdStr)
 {
 	// TODO :: 함수로 쪼개기.
@@ -659,6 +658,7 @@ int ItemIdSearchingQuery(HWND hWnd, int* itemId, bool IsMessageBoxPop)
 		}
 		return -1;
 	}
+
 
 	// 형변환
 	TCHAR searchingItemName[EDIT_BUF_SIZE];
@@ -814,6 +814,15 @@ bool DBFree(SQLHENV hEnv, SQLHDBC hDbc, SQLHSTMT hStmt)
 	if (hDbc) SQLDisconnect(hDbc);
 	if (hDbc) SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
 	if (hEnv) SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+
+	return true;
+}
+
+// DB에 접속하는 함수.
+bool DBConnect(SQLHENV hEnv, SQLHDBC hDbc, SQLHSTMT hStmt)
+{
+	int ret;
+
 
 	return true;
 }

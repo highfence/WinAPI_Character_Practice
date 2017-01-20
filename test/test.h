@@ -52,6 +52,7 @@ bool SetEditBoxWithValue(HWND, int);
 int ConvertTCharToInt(TCHAR*);
 bool IsStringEmpty(TCHAR*);
 bool DBFree(SQLHENV, SQLHDBC, SQLHSTMT);
+bool DBConnect(SQLHENV, SQLHDBC, SQLHSTMT);
 
 // Character Functions
 bool CharacterProc(HWND, WPARAM);
